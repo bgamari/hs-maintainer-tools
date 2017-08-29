@@ -28,7 +28,7 @@ infer_tag_name() {
 
 ver="$(sed -n -e 's/^[vV]ersion:\s\+\(.\+\)/\1/p' *.cabal)-r$rev"
 echo "Tagging $ver"
-tag_name=infer_tag_name
+tag_name=$(infer_tag_name)
 git tag --annotate --sign -u ben@smart-cactus.org -m "Release revision $ver" ${tag_name}
 
 echo "Pushing to Hackage"
