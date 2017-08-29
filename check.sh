@@ -8,7 +8,7 @@ function check_package() {
 logs=`pwd`/logs
 mkdir -p $logs
 if [ -z "$@" ]; then
-    dirs="$(find -iname '*.cabal')"
+    dirs="$(find -iname '*.cabal' -a -not -path '*/dist-newstyle/*')"
 else
     dirs="$@"
 fi
