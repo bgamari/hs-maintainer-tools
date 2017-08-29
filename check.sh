@@ -21,16 +21,16 @@ EOF
 
 for i in $dirs; do
     dir=$(dirname $i)
+    file=$(basename $i)
     echo
-    echo "======================================"
-    echo $dir
-    pushd $dir
-    check_package $dir 2>&1 | tee $logs/$dir
+    echo "=== $dir"
+    pushd $dir > /dev/null
+    check_package $dir 2>&1 | tee $logs/$file
     if [ ${PIPESTATUS[0]} == 0 ]; then
         echo "ok    $dir" >> $logs/log
     else
         echo "fail  $dir" >> $logs/log
     fi
-    popd
+    popd > /dev/null
 done
 
