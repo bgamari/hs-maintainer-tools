@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from subprocess import check_call, check_output
 import sys
+from textwrap import dedent
 import re
 
 DEFAULT_KEY = "ben@smart-cactus.org"
@@ -91,9 +92,9 @@ def get_tags() -> List[str]:
 def infer_tag_naming() -> Callable[[str], str]:
     tags = get_tags()
     with_vs = [ tag for tag in tags if re.match(r'v[0-9]+(\.[0-9]+)+', tag) ]
-    without_vs = [ tag for tag in tags if re.findall(r'[0-9]+(\.[0-9]+)+', tag) ]
+    without_vs = [ tag for tag in tags if re.match(r'[0-9]+(\.[0-9]+)+', tag) ]
     if len(with_vs) > len(without_vs):
-        return lambda ver: f"v${ver}"
+        return lambda ver: f"v{ver}"
     else:
         return lambda ver: ver
 
@@ -104,6 +105,46 @@ def make_tag(version: str, signing_key: str) -> None:
     check_call(['git', 'tag', '--annotate', '--sign', '-u', signing_key,
                 '-m', f'Release {version}', tag_name])
     check_call(['git', 'push', 'origin', 'master', tag_name])
+
+def check_for_major_changes(cabal: CabalFile) -> bool:
+    """ True => Do revision, False => do release """
+    old_ver = cabal.get_version()
+    old_tag = infer_tag_naming()(old_ver)
+    if old_tag not in get_tags():
+        print(f"Couldn't find tag {old_tag} for current version; skipping revision check.\n")
+        return False
+
+    cmd = ['git', 'diff', '--name-only', f'{old_tag}..HEAD']
+    changed_files = [ l.strip()
+                      for l in check_output(cmd).decode('UTF-8').split('\n')
+                      if len(l.strip()) > 0 ]
+    non_cabals = [ f
+                   for f in changed_files
+                   if not f.endswith('.cabal') ]
+    print(f"{len(changed_files)} files have changed since {old_tag}:\n  ",
+          '  \n'.join(changed_files))
+
+    if len(non_cabals) > 0:
+        return False
+    else:
+        print(dedent(f'''
+            It appears that the only changes between {old_tag} and now are in the
+            cabal file. Perhaps you want to make a revision instead?
+
+            y = make a revision
+            n = do a full release anyways
+            d = show me a diff
+        '''))
+        while True:
+            resp = input('[ynd] ')
+            if resp == 'd':
+                cmd = ['git', 'diff', f'{old_tag}..HEAD']
+                print(' '.join(cmd))
+                check_call(cmd)
+            elif resp == 'y':
+                return True
+            elif resp == 'n':
+                return False
 
 def do_revision(cabal: CabalFile, signing_key: str) -> None:
     check_call(['hackage-cli', 'sync-cabal', '--incr-rev', cabal.path])
@@ -132,40 +173,20 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     old_ver = cabal.get_version()
     mk_tag_name = infer_tag_naming()
 
-    # Check whether there are any significant changes
-    old_tag = mk_tag_name(old_ver)
-    if old_tag in get_tags():
-        changed_files = check_output(['git', 'diff', '--name-only', f'{old_tag}..HEAD'])
-        non_cabals = [ f
-                       for f in changed_files
-                       if not changed_files.endswith('.cabal') ]
-        if len(non_cabals) == 0:
-            print(f'''
-              It appears that the only changes between {old_tag} and now are in the
-              cabal file. Perhaps you want to make a revision instead?
-
-              y = make a revision
-              n = do a full release anyways
-              d = show me a diff
-            ''')
-            while True:
-                resp = input('[ynd] ')
-                if resp == 'd':
-                    cmd = ['git', 'diff', f'{old_tag}..HEAD']
-                    print(' '.join(cmd))
-                    check_call(cmd)
-                elif resp == 'y':
-                    do_revision(cabal, signing_key)
-                    return
-                elif resp == 'n':
-                    break
-
     print("Package name:", name)
     print("Current version:", old_ver)
     print("Has documentation:", has_docs)
 
+    print()
     try_call(["cabal", "outdated", "--exit-code"])
+    print()
 
+    # Check whether there are any significant changes
+    if check_for_major_changes(cabal):
+        do_revision(cabal, signing_key)
+        return
+
+    # Bump version
     new_ver = input(f"New version [{old_ver}]: ")
     if new_ver == "":
         new_ver = old_ver
