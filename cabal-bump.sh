@@ -1,7 +1,9 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+
+set -e
 
 has_docs=1
-sandbox=0
+#sandbox=1
 newbuild=1
 
 # haddock upload broken with new-build
@@ -37,11 +39,13 @@ fi
 
 try cabal check
 cabal clean
-if [ $newbuild != 0 ]; then
+if [ -n "$nix" ]; then
+    nix build -f shell.nix
+elif [ -n "$newbuild" ]; then
     cabal new-build
     try cabal new-test
 else
-    if [ $sandbox != 0 ]; then
+    if [ -n "$sandbox" ]; then
         cabal sandbox delete
         cabal sandbox init
     fi
