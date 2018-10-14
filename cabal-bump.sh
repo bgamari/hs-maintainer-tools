@@ -89,16 +89,6 @@ read -p "Hackage username: " username
 read -s -p "Hackage password: " password
 echo
 cabal upload --username $username --password $password dist/*-${ver}.tar.gz
-read -p "Go have a look at the candidate before proceding"
-
-# Tag release
-tag_name=`infer_tag_name`
-echo "Tagging ${tag_name}"
-git tag --annotate --sign -u ben@smart-cactus.org -m "Release $ver" ${tag_name}
-git push origin master ${tag_name}
-
-# Publish
-cabal upload --username $username --password $password --publish dist/*-${ver}.tar.gz
 
 # Upload documentation
 if [ $has_docs != 0 ]; then
@@ -108,4 +98,19 @@ if [ $has_docs != 0 ]; then
         && echo "Documentation upload succeeded."
     echo
 fi
+
+# Confirm
+read -p "Go have a look at the candidate before proceding"
+
+# Tag release
+if [ -z "$no_tag" ]; then
+    tag_name=`infer_tag_name`
+    echo "Tagging ${tag_name}"
+    git tag --annotate --sign -u ben@smart-cactus.org -m "Release $ver" ${tag_name}
+    git push origin master ${tag_name} || ( git tag -d ${tag_name}; exit 1 )
+fi
+
+# Publish
+cabal upload --username $username --password $password --publish dist/*-${ver}.tar.gz
+
 echo "Version $ver of package $name released."
