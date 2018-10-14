@@ -16,6 +16,14 @@ def print_heading(s: str) -> None:
     sep = '='*width
     print(f'\n\n{sep}  {s}  {sep}\n')
 
+def prompt_for_char(prompt: str, options: str, default=None) -> str:
+    while True:
+        resp = input(f"{prompt} [{options}] ")
+        if default is not None and resp == "":
+            return default
+        elif resp in options:
+            return resp
+
 class CabalFile:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -73,7 +81,8 @@ def find_cabal_file() -> CabalFile:
 
 def try_call(cmd: List[str]) -> None:
     if subprocess.call(cmd) != 0:
-        resp = input("command failed; is this okay? [yN] ")
+        resp = prompt_for_char("command failed; is this okay?",
+                               options="yn", default='n')
         if resp != "y":
             sys.exit(1)
 
@@ -140,7 +149,7 @@ def check_for_major_changes(cabal: CabalFile) -> bool:
             d = show me a diff
         '''))
         while True:
-            resp = input('[ynd] ')
+            resp = prompt_for_char('How to proceed?', options='ynd')
             if resp == 'd':
                 cmd = ['git', 'diff', f'{old_tag}..HEAD']
                 print(' '.join(cmd))
@@ -156,7 +165,7 @@ def do_revision(cabal: CabalFile, signing_key: str) -> None:
     rev = cabal.get_revision()
     print_heading("Make a revision")
     print(f'This will be is revision {rev}.')
-    if input('Continue? [yn] ') != 'y':
+    if prompt_for_char('Continue?', options='yn') != 'y':
         print('aborting.')
         return
 
@@ -190,7 +199,7 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     print_heading('Check for outdated dependencies')
     if subprocess.call(["cabal", "outdated", "--exit-code"]) != 0:
         print('\nIt looks like some dependency bounds are out of date.')
-        if input('Release anyways? [Ny] ') != 'y':
+        if prompt_for_char('Release anyways?', options='yn') != 'y':
             sys.exit(1)
 
     # Check whether there are any significant changes
@@ -255,7 +264,11 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
         print("Documentation uploaded.")
 
     # Confirm
-    input('Go have a look at the candidate before proceding...')
+    print_heading('Review candidate')
+    print('Go have a look at the candidate before proceding...')
+    if prompt_for_char('Does the candidate look okay?', options='yn') != 'y':
+        print('Okay, aborting.')
+        return
 
     # Tag release
     if not omit_tag:
