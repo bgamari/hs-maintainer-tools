@@ -10,10 +10,14 @@ from textwrap import dedent
 import re
 
 WITH_COLOR = True
-if WITH_COLOR:
-    from termcolor import colored
-else:
-    def colored(s, color, attrs):
+def colored(s: str,
+            text_color: Optional[str] = None,
+            on_color: Optional[str] = None,
+            attrs: List[str] = []) -> str:
+    if WITH_COLOR:
+        import termcolor
+        return termcolor.colored(s, text_color, on_color, attrs)
+    else:
         return s
 
 DEFAULT_KEY = "ben@smart-cactus.org"
