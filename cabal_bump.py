@@ -11,6 +11,11 @@ import re
 
 DEFAULT_KEY = "ben@smart-cactus.org"
 
+def print_heading(s: str) -> None:
+    width = (79 - len(s) - 4) // 2
+    sep = '='*width
+    print(f'\n\n{sep}  {s}  {sep}\n')
+
 class CabalFile:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -98,7 +103,6 @@ def infer_tag_naming() -> Callable[[str], str]:
     else:
         return lambda ver: ver
 
-
 def make_tag(version: str, signing_key: str) -> None:
     tag_name = infer_tag_naming()(version)
     print(f"Tagging {tag_name}")
@@ -150,7 +154,12 @@ def do_revision(cabal: CabalFile, signing_key: str) -> None:
     check_call(['hackage-cli', 'sync-cabal', '--incr-rev', cabal.path])
     ver = cabal.get_version()
     rev = cabal.get_revision()
-    print(f'This is revision {rev}')
+    print_heading("Make a revision")
+    print(f'This will be is revision {rev}.')
+    if input('Continue? [yn] ') != 'y':
+        print('aborting.')
+        return
+
     full_ver = f'{ver}-r{rev}'
     check_call(['hackage-cli', 'push-cabal', cabal.path])
     make_tag(full_ver, signing_key)
@@ -173,20 +182,25 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     old_ver = cabal.get_version()
     mk_tag_name = infer_tag_naming()
 
+    print_heading('Package details')
     print("Package name:", name)
     print("Current version:", old_ver)
     print("Has documentation:", has_docs)
 
-    print()
-    try_call(["cabal", "outdated", "--exit-code"])
-    print()
+    print_heading('Check for outdated dependencies')
+    if subprocess.call(["cabal", "outdated", "--exit-code"]) != 0:
+        print('\nIt looks like some dependency bounds are out of date.')
+        if input('Release anyways? [Ny] ') != 'y':
+            sys.exit(1)
 
     # Check whether there are any significant changes
+    print_heading('Check for PVP-significant changes')
     if check_for_major_changes(cabal):
         do_revision(cabal, signing_key)
         return
 
     # Bump version
+    print_heading('Choose next version number')
     new_ver = input(f"New version [{old_ver}]: ")
     if new_ver == "":
         new_ver = old_ver
@@ -198,8 +212,11 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
         print(f'Tag {tag_name} already exists')
         sys.exit(1)
 
-    # Set the version and prepare for build
+    # Set the version
     cabal.set_version(new_ver)
+
+    # prepare for build
+    print_heading('Test build')
     try_call(["cabal", "check"])
     check_call(["cabal", "clean"])
 
@@ -213,13 +230,14 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     docs_tarball = prepare_docs(cabal) if has_docs else None
 
     # Commit and build sdist
-    print()
+    print_heading('Commit')
     print("Release looks good, let's ship it!")
     subprocess.call(["git", "commit", cabal.path, "-m", f"Bump to {new_ver}", "--edit"])
     check_call(["cabal", "sdist"])
     sdist_tarball = f'dist/{name}-{new_ver}.tar.gz'
 
     # Upload
+    print_heading('Upload candidate to Hackage')
     username = input("Hackage user name: ")
     password = input("Hackage password: ")
     print()
@@ -250,6 +268,7 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
                 '--publish',
                 sdist_tarball])
 
+    print_heading('Finished!')
     print(f"Version {new_ver} of package {name} released.")
 
 def main():
