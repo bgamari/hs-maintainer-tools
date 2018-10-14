@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import NewType, List, Callable
+from typing import NewType, List, Callable, Optional
 import shutil
 import subprocess
 from subprocess import check_call, check_output
@@ -14,20 +14,32 @@ class CabalFile:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def get_field(self, field: str) -> str:
+    def get_field(self, field: str) -> Optional[str]:
         m = re.search(r'^{field}:\s*([^\s]+)'.format(field=field),
                       self.path.read_text(),
                       flags=re.IGNORECASE | re.MULTILINE)
         if m is None:
-            raise RuntimeError(f"Failed to find value for field '{field}'")
+            return None
         else:
             return m.group(1)
 
     def get_name(self) -> str:
-        return self.get_field("name")
+        name = self.get_field("name")
+        if name is None:
+            raise RuntimeError(f"Failed to find package name")
+        else:
+            return name
 
     def get_version(self) -> str:
-        return self.get_field("version")
+        ver = self.get_field("version")
+        if ver is None:
+            raise RuntimeError(f"Failed to find package version")
+        else:
+            return ver
+
+    def get_revision(self) -> int:
+        rev = self.get_field("x-revision")
+        return 0 if rev is None else int(rev)
 
     def set_field(self, field, new) -> None:
         content = self.path.read_text()
@@ -85,7 +97,25 @@ def infer_tag_naming() -> Callable[[str], str]:
     else:
         return lambda ver: ver
 
-def run(mode: str, make_tag: bool, signing_key: str) -> None:
+
+def make_tag(version: str, signing_key: str) -> None:
+    tag_name = infer_tag_naming()(version)
+    print(f"Tagging {tag_name}")
+    check_call(['git', 'tag', '--annotate', '--sign', '-u', signing_key,
+                '-m', f'Release {version}', tag_name])
+    check_call(['git', 'push', 'origin', 'master', tag_name])
+
+def do_revision(cabal: CabalFile, signing_key: str) -> None:
+    check_call(['hackage-cli', 'sync-cabal', '--incr-rev', cabal.path])
+    ver = cabal.get_version()
+    rev = cabal.get_revision()
+    print(f'This is revision {rev}')
+    full_ver = f'{ver}-r{rev}'
+    check_call(['hackage-cli', 'push-cabal', cabal.path])
+    make_tag(full_ver, signing_key)
+    print(f'Cut revision {full_ver}')
+
+def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     assert mode in [ "new-build", "nix" ]
     has_docs = True
 
@@ -93,9 +123,42 @@ def run(mode: str, make_tag: bool, signing_key: str) -> None:
     if mode == "new-build":
         has_docs = False
 
+    if subprocess.call(['git', 'diff', '--quiet']) != 0:
+        print('Stopping due to dirty working tree')
+        return
+
     cabal = find_cabal_file()
     name = cabal.get_name()
     old_ver = cabal.get_version()
+    mk_tag_name = infer_tag_naming()
+
+    # Check whether there are any significant changes
+    old_tag = mk_tag_name(old_ver)
+    if old_tag in get_tags():
+        changed_files = check_output(['git', 'diff', '--name-only', f'{old_tag}..HEAD'])
+        non_cabals = [ f
+                       for f in changed_files
+                       if not changed_files.endswith('.cabal') ]
+        if len(non_cabals) == 0:
+            print(f'''
+              It appears that the only changes between {old_tag} and now are in the
+              cabal file. Perhaps you want to make a revision instead?
+
+              y = make a revision
+              n = do a full release anyways
+              d = show me a diff
+            ''')
+            while True:
+                resp = input('[ynd] ')
+                if resp == 'd':
+                    cmd = ['git', 'diff', f'{old_tag}..HEAD']
+                    print(' '.join(cmd))
+                    check_call(cmd)
+                elif resp == 'y':
+                    do_revision(cabal, signing_key)
+                    return
+                elif resp == 'n':
+                    break
 
     print("Package name:", name)
     print("Current version:", old_ver)
@@ -109,7 +172,7 @@ def run(mode: str, make_tag: bool, signing_key: str) -> None:
 
     # Verify that tag doesn't already exist
     existing_tags = get_tags()
-    tag_name = infer_tag_naming()(new_ver)
+    tag_name = mk_tag_name(new_ver)
     if tag_name in existing_tags:
         print(f'Tag {tag_name} already exists')
         sys.exit(1)
@@ -156,18 +219,15 @@ def run(mode: str, make_tag: bool, signing_key: str) -> None:
     input('Go have a look at the candidate before proceding...')
 
     # Tag release
-    if make_tag:
-        print(f"Tagging {tag_name}")
-        check_call(['git', 'tag', '--annotate', '--sign', '-u', signing_key,
-                    '-m', f'Release {new_ver}', tag_name])
-        check_call(['git', 'push', 'origin', 'master', tag_name])
+    if not omit_tag:
+        make_tag(new_ver, signing_key)
 
     # Publish
-    #check_call(['cabal', 'upload',
-    #            '--username', username,
-    #            '--password', password,
-    #            '--publish',
-    #            sdist_tarball])
+    check_call(['cabal', 'upload',
+                '--username', username,
+                '--password', password,
+                '--publish',
+                sdist_tarball])
 
     print(f"Version {new_ver} of package {name} released.")
 
@@ -182,7 +242,7 @@ def main():
                         default=DEFAULT_KEY,
                         help="Key to use to sign the tag")
     args = parser.parse_args()
-    run(mode=args.mode, make_tag=not args.no_tag, signing_key=args.signing_key)
+    run(mode=args.mode, omit_tag=args.no_tag, signing_key=args.signing_key)
 
 if __name__ == '__main__':
     main()
