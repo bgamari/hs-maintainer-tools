@@ -25,6 +25,8 @@ let
       git curl nix
       cabal-install haskellPackages.haddock
       hackage-cli
-    ];
+    ] ++ (with python3Packages; [
+      termcolor
+    ]);
   };
 in scripts

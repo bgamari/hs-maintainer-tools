@@ -8,6 +8,7 @@ setup(name='hs-maintainer-tools',
       author='Ben Gamari',
       author_email='ben@smart-cactus.org',
       py_modules=['cabal_bump'],
+      install_requires = [ 'termcolor' ],
       entry_points={
           'console_scripts': [
               'cabal-bump=cabal_bump:main'

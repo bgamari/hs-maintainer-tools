@@ -9,16 +9,26 @@ import sys
 from textwrap import dedent
 import re
 
+WITH_COLOR = True
+if WITH_COLOR:
+    from termcolor import colored
+else:
+    def colored(s, color, attrs):
+        return s
+
 DEFAULT_KEY = "ben@smart-cactus.org"
 
 def print_heading(s: str) -> None:
     width = (79 - len(s) - 4) // 2
-    sep = '='*width
-    print(f'\n\n{sep}  {s}  {sep}\n')
+    sep = colored('='*width, 'white', attrs=['bold'])
+    hd = colored(s, 'yellow', attrs=['bold'])
+    print(f'\n\n{sep}  {hd}  {sep}\n')
 
 def prompt_for_char(prompt: str, options: str, default=None) -> str:
+    prompt = colored(prompt, 'green')
+    opts_prompt = colored(f'[{options}]', 'white')
     while True:
-        resp = input(f"{prompt} [{options}] ")
+        resp = input(f"{prompt} {opts_prompt} ")
         if default is not None and resp == "":
             print()
             return default
