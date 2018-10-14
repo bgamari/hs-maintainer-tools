@@ -71,17 +71,26 @@ class CabalFile:
         rev = self.get_field("x-revision")
         return 0 if rev is None else int(rev)
 
-    def set_field(self, field, new) -> None:
+    def set_field(self, field: str, new: str) -> None:
         content = self.path.read_text()
         content = re.sub(r"^(?P<field>{field}:\s*).*(?P<post>\s(--.*)?)".format(field=field),
                          r"\g<field>{new}\g<post>".format(new=new),
                          content,
                          flags=re.IGNORECASE | re.MULTILINE)
         self.path.write_text(content)
-        assert self.get_field(field) == new
 
-    def set_version(self, new_version) -> None:
+        # Verify that the update was successful
+        check = self.get_field(field)
+        assert check is not None
+        check = check.strip()
+        if check != new.strip():
+            raise RuntimeError(f'''Failed to update field: "{check}" /= "{new.strip()}"''')
+
+    def set_version(self, new_version: str) -> None:
         self.set_field("version", new_version)
+
+    def set_revision(self, new_revision: int) -> None:
+        self.set_field("x-revision", str(new_revision))
 
     def has_library(self) -> bool:
         return re.search('^[lL]ibrary', self.path.read_text()) is not None
@@ -179,6 +188,9 @@ def do_revision(cabal: CabalFile, signing_key: str) -> None:
     check_call(['hackage-cli', 'sync-cabal', '--incr-rev', cabal.path])
     ver = cabal.get_version()
     rev = cabal.get_revision()
+    check_call(['git', 'checkout', cabal.path])
+    cabal.set_revision(rev)
+
     print_heading("Make a revision")
     print(f'This will be is revision {rev}.')
     if prompt_for_char('Continue?', options='yn') != 'y':
