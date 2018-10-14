@@ -77,7 +77,7 @@ def infer_tag_naming() -> Callable[[str], str]:
     else:
         return lambda ver: ver
 
-def main(mode: str, make_tag: bool, signing_key: str) -> None:
+def run(mode: str, make_tag: bool, signing_key: str) -> None:
     assert mode in [ "new-build", "nix" ]
     has_docs = True
 
@@ -163,7 +163,7 @@ def main(mode: str, make_tag: bool, signing_key: str) -> None:
 
     print(f"Version {new_ver} of package {name} released.")
 
-if __name__ == '__main__':
+def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mode', type=str, choices=['nix', 'new-build'],
@@ -174,4 +174,7 @@ if __name__ == '__main__':
                         default=DEFAULT_KEY,
                         help="Key to use to sign the tag")
     args = parser.parse_args()
-    main(mode=args.mode, make_tag=not args.no_tag, signing_key=args.signing_key)
+    run(mode=args.mode, make_tag=not args.no_tag, signing_key=args.signing_key)
+
+if __name__ == '__main__':
+    main()
