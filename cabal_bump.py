@@ -166,11 +166,15 @@ def do_revision(cabal: CabalFile, signing_key: str) -> None:
     print_heading("Make a revision")
     print(f'This will be is revision {rev}.')
     if prompt_for_char('Continue?', options='yn') != 'y':
-        print('aborting.')
+        print('Okay, aborting.')
         return
+
+    check_call(['git', 'commit', cabal.path, '-m', f'Cabal revision {rev}'])
 
     full_ver = f'{ver}-r{rev}'
     check_call(['hackage-cli', 'push-cabal', cabal.path])
+
+    print_heading("Make a tag")
     make_tag(full_ver, signing_key)
     print(f'Cut revision {full_ver}')
 
