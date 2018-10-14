@@ -15,12 +15,13 @@ class CabalFile:
         self.path = path
 
     def get_field(self, field: str) -> str:
-        m = re.search(r'^{field}:\s+(.+)([^\s]+)'.format(field=field),
-                      self.path.read_text())
+        m = re.search(r'^{field}:\s*([^\s]+)'.format(field=field),
+                      self.path.read_text(),
+                      flags=re.IGNORECASE | re.MULTILINE)
         if m is None:
-            raise RuntimeError(f"Failed to find value for field {field}")
+            raise RuntimeError(f"Failed to find value for field '{field}'")
         else:
-            return m.group(0)
+            return m.group(1)
 
     def get_name(self) -> str:
         return self.get_field("name")
@@ -31,8 +32,8 @@ class CabalFile:
     def set_version(self, new_version) -> None:
         old_version = self.get_version()
         content = self.path.read_text()
-        conten = re.sub(r"\(^[vV]ersion:\s\+\){old_version}".format(old_version=old_version),
-                        r"\1{new_version}".format(new_version=new_version),
+        conten = re.sub(r"\(?P<field>^[vV]ersion:\s\+\){old_version}".format(old_version=old_version),
+                        r"(?P=field){new_version}".format(new_version=new_version),
                         content)
         self.path.write_text(content)
 
@@ -68,10 +69,13 @@ def prepare_docs(cabal: CabalFile) -> Path:
     shutil.rmtree(dest)
     return tarball
 
+def get_tags() -> List[str]:
+    return check_output(['git', 'tag']).decode('UTF-8').split('\n')
+
 def infer_tag_naming() -> Callable[[str], str]:
-    out = check_output(['git', 'tag'])
-    with_vs = re.findall(r'v[0-9]+(\.[0-9]+)+', out)
-    without_vs = re.findall(r'[0-9]+(\.[0-9]+)+', out)
+    tags = get_tags()
+    with_vs = [ tag for tag in tags if re.match(r'v[0-9]+(\.[0-9]+)+', tag) ]
+    without_vs = [ tag for tag in tags if re.findall(r'[0-9]+(\.[0-9]+)+', tag) ]
     if len(with_vs) > len(without_vs):
         return lambda ver: f"v${ver}"
     else:
@@ -100,7 +104,7 @@ def run(mode: str, make_tag: bool, signing_key: str) -> None:
         new_ver = old_ver
 
     # Verify that tag doesn't already exist
-    existing_tags = check_output(['git', 'tag']).split('\n')
+    existing_tags = get_tags()
     tag_name = infer_tag_naming()(new_ver)
     if tag_name in existing_tags:
         print(f'Tag {tag_name} already exists')
@@ -123,7 +127,7 @@ def run(mode: str, make_tag: bool, signing_key: str) -> None:
     # Commit and build sdist
     print()
     print("Release looks good, let's ship it!")
-    check_call(["git", "commit", cabal.path, "-m", f"Bump to {new_ver}", "--edit"])
+    subprocess.call(["git", "commit", cabal.path, "-m", f"Bump to {new_ver}", "--edit"])
     check_call(["cabal", "sdist"])
     sdist_tarball = f'dist/{name}-{new_ver}.tar.gz'
 
