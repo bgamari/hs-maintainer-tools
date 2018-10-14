@@ -1,6 +1,6 @@
-let
-  nixpkgs = import <nixpkgs> {};
-in with nixpkgs;
+{ nixpkgs ? (import <nixpkgs> {}) }:
+
+with nixpkgs;
 let
   hackage-cli =
     let src = fetchFromGitHub {
