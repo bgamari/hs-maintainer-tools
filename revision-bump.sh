@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+
+set -e
 
 cabal=`ls *.cabal`
 
@@ -33,3 +35,5 @@ git tag --annotate --sign -u ben@smart-cactus.org -m "Release revision $ver" ${t
 
 echo "Pushing to Hackage"
 hackage-cli push-cabal $cabal
+
+git push origin $tag_name
