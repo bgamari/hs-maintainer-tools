@@ -20,8 +20,10 @@ def prompt_for_char(prompt: str, options: str, default=None) -> str:
     while True:
         resp = input(f"{prompt} [{options}] ")
         if default is not None and resp == "":
+            print()
             return default
         elif resp in options:
+            print()
             return resp
 
 class CabalFile:
