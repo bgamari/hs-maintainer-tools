@@ -29,13 +29,17 @@ class CabalFile:
     def get_version(self) -> str:
         return self.get_field("version")
 
-    def set_version(self, new_version) -> None:
-        old_version = self.get_version()
+    def set_field(self, field, new) -> None:
         content = self.path.read_text()
-        conten = re.sub(r"\(?P<field>^[vV]ersion:\s\+\){old_version}".format(old_version=old_version),
-                        r"(?P=field){new_version}".format(new_version=new_version),
-                        content)
+        content = re.sub(r"^(?P<field>{field}:\s*).*(?P<post>\s(--.*)?)".format(field=field),
+                         r"\g<field>{new}\g<post>".format(new=new),
+                         content,
+                         flags=re.IGNORECASE | re.MULTILINE)
         self.path.write_text(content)
+        assert self.get_field(field) == new
+
+    def set_version(self, new_version) -> None:
+        self.set_field("version", new_version)
 
     def has_library(self) -> bool:
         return re.search('^[lL]ibrary', self.path.read_text()) is not None
