@@ -143,8 +143,12 @@ def make_tag(version: str, signing_key: str) -> None:
 def check_for_major_changes(cabal: CabalFile) -> bool:
     """ True => Do revision, False => do release """
     old_ver = cabal.get_version()
-    old_tag = infer_tag_naming()(old_ver)
-    if old_tag not in get_tags():
+    old_tag = None
+    if f'v{old_ver}' in get_tags():
+        old_tag = f'v{old_ver}'
+    if f'{old_ver}' in get_tags():
+        old_tag = f'{old_ver}'
+    if old_ver is None:
         print(f"Couldn't find tag {old_tag} for current version; skipping revision check.\n")
         return False
 
