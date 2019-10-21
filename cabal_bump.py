@@ -114,15 +114,11 @@ def try_call(cmd: List[str]) -> None:
 def prepare_docs(cabal: CabalFile) -> Path:
     name = cabal.get_name()
     ver = cabal.get_version()
-    check_call(['cabal', 'haddock',
-                '--hyperlink-source',
-                f'--html-location=http://hackage.haskell.org/package/{name}/docs',
-                f'--contents-location=http://hackage.haskell.org/package/{name}'])
-    dest = Path(f"{name}-{ver}-docs")
-    shutil.copytree(Path('dist/doc/html') / name, dest)
-    tarball = dest.with_suffix("tar.gz")
-    check_call(['tar', '-cvz', '--format=ustar', '-f', tarball, dest])
-    shutil.rmtree(dest)
+    haddock_opts = [
+        '--hyperlinked-source',
+    ]
+    check_call(['cabal', 'haddock', '--haddock-for-hackage'] + [f'--haddock-option={o}' for o in haddock_opts])
+    tarball = Path(f"dist-newstyle/{name}-{ver}-docs.tar.gz")
     return tarball
 
 def get_tags() -> List[str]:
