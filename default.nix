@@ -6,12 +6,15 @@ let
     let src = fetchFromGitHub {
         owner = "hackage-trustees";
         repo = "hackage-cli";
-        rev = "5871c72e0f5797e22f24c8beaff6527f82448077";
-        sha256 = "01fsiifxjmgvpgs89avnfigx4gv6464rik1vpkb1gy38j2d7dkrz";
+        rev = "d50463879a5ffbcc8d7d10811e8479cb9e6943e5";
+        sha256 = "1cclhlaih7bx0lis6h60v8s1ydzdakh037dni7z1falg75yzvrlv";
       };
     in haskellPackages.callCabal2nix "hackage-cli" src {
       netrc = haskell.lib.dontCheck haskellPackages.netrc;
+      Cabal = haskellPackages.Cabal_3_0_0_0;
     };
+
+  haskellPackages = haskell.packages.ghc865;
 
   scripts = python3Packages.buildPythonPackage {
     pname = "hs-maintainer-tools";
@@ -20,10 +23,11 @@ let
     preBuild = ''
       mypy cabal_bump.py
     '';
-    buildInputs = [ mypy ];
+    nativeBuildInputs = [ mypy ];
     propagatedBuildInputs = [
       git curl nix
-      cabal-install haskellPackages.haddock
+      cabal-install
+      haskellPackages.haddock
       hackage-cli
     ] ++ (with python3Packages; [
       termcolor
