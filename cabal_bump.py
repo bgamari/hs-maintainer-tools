@@ -319,7 +319,7 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--mode', type=str, choices=['nix', 'new-build'],
+    parser.add_argument('-m', '--mode', default='new-build', type=str, choices=['nix', 'new-build'],
                         help="How to build")
     parser.add_argument('-N', '--no-tag', action='store_true',
                         help="Don't produce a git tag for the release")
