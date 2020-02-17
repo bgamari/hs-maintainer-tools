@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import NewType, List, Callable, Optional
+from getpass import getpass
 import shutil
 import subprocess
 from subprocess import check_call, check_output
@@ -280,7 +281,7 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     # Upload
     print_heading('Upload candidate to Hackage')
     username = input("Hackage user name: ")
-    password = input("Hackage password: ")
+    password = getpass("Hackage password: ")
     print()
     check_call(['cabal', 'upload',
                 '--username', username,
