@@ -276,7 +276,7 @@ def run(mode: str, omit_tag: bool, signing_key: str) -> None:
     print("Release looks good, let's ship it!")
     subprocess.call(["git", "commit", cabal.path, "-m", f"Bump to {new_ver}", "--edit"])
     check_call(["cabal", "sdist"])
-    sdist_tarball = f'dist-newstyle/{name}-{new_ver}.tar.gz'
+    sdist_tarball = f'dist-newstyle/sdist/{name}-{new_ver}.tar.gz'
 
     # Upload
     print_heading('Upload candidate to Hackage')
