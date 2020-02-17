@@ -149,7 +149,7 @@ def check_for_major_changes(cabal: CabalFile) -> bool:
         old_tag = f'v{old_ver}'
     if f'{old_ver}' in get_tags():
         old_tag = f'{old_ver}'
-    if old_ver is None:
+    if old_tag is None:
         print(f"Couldn't find tag {old_tag} for current version; skipping revision check.\n")
         return False
 
